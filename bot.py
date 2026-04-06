@@ -238,7 +238,8 @@ class ReviewView(ui.View):
     @ui.button(label="✅ AI回答を送信", style=discord.ButtonStyle.green)
     async def approve(self, interaction: discord.Interaction, button: ui.Button):
         try:
-            await self.original_message.reply(self.suggested_answer)
+            thread = await self.original_message.create_thread(name=f"{self.original_message.author.display_name}さんの質問")
+            await thread.send(self.suggested_answer)
             log_to_sheet(worksheet, str(self.original_message.author), self.original_message.content, "REVIEW→AUTO送信", self.suggested_answer, "承認済み")
             await interaction.response.edit_message(content="✅ 回答を送信しました！", view=None)
         except Exception as e:
@@ -349,7 +350,8 @@ async def on_message(message: discord.Message):
 
     # ── スクショ要求 ──
     if any(kw in content for kw in ERROR_KEYWORDS) and not message.attachments:
-        await message.reply(SCREENSHOT_REQUEST_MSG)
+        thread = await message.create_thread(name=f"{message.author.display_name}さんの質問")
+        await thread.send(SCREENSHOT_REQUEST_MSG)
         log_to_sheet(worksheet, str(message.author), content, "スクショ待ち", SCREENSHOT_REQUEST_MSG, "スクショ要求済み")
         logger.info(f"スクショ要求送信: {message.author.name}")
         await bot.process_commands(message)
@@ -367,9 +369,10 @@ async def on_message(message: discord.Message):
 
     if classification == "AUTO" and confidence >= 0.7 and suggested_answer:
         try:
-            await message.reply(suggested_answer)
+            thread = await message.create_thread(name=f"{message.author.display_name}さんの質問")
+            await thread.send(suggested_answer)
             log_to_sheet(worksheet, str(message.author), content, "AUTO", suggested_answer, "自動返信済み")
-            logger.info(f"AUTO返信完了: {message.author.name}")
+            logger.info(f"AUTO返信完了（スレッド）: {message.author.name}")
         except Exception as e:
             logger.error(f"AUTO返信エラー: {e}")
     else:
