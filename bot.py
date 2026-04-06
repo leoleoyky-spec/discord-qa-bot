@@ -36,8 +36,11 @@ BLOG_CHANNEL_ID = int(os.environ.get("BLOG_CHANNEL_ID", "1485086627490431066"))
 ENTRANCE_CHANNEL_ID = int(os.environ.get("ENTRANCE_CHANNEL_ID", "1473853429418819749"))
 WELCOME_STICKER_ID = int(os.environ.get("WELCOME_STICKER_ID", "1490522895183773876"))
 
-# スタッフ判定キーワード
-STAFF_KEYWORDS = ["ゆーぽん", "みお事務局", "みお"]
+# スタッフ判定（オーナー + スタッフのユーザーID）
+# ここにスタッフのDiscordユーザーIDを追加
+STAFF_USER_IDS = [
+    OWNER_DISCORD_ID,  # みお本人
+]
 
 # スクショ要求トリガーキーワード
 ERROR_KEYWORDS = ["エラー", "できない", "動かない", "開かない", "失敗", "おかしい"]
@@ -220,11 +223,8 @@ gc = None
 worksheet = None
 
 
-def is_staff(member_name: str, display_name: str) -> bool:
-    for kw in STAFF_KEYWORDS:
-        if kw in member_name or kw in display_name:
-            return True
-    return False
+def is_staff(user_id: int) -> bool:
+    return user_id in STAFF_USER_IDS
 
 
 # ── 承認ボタンUI ──
@@ -319,8 +319,7 @@ async def on_message(message: discord.Message):
         return
 
     # スタッフの投稿は無視
-    display_name = message.author.display_name if hasattr(message.author, "display_name") else ""
-    if is_staff(message.author.name, display_name):
+    if is_staff(message.author.id):
         logger.info(f"スタッフ投稿をスキップ: {message.author.name}")
         return
 
