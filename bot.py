@@ -550,32 +550,29 @@ async def on_message(message: discord.Message):
     confidence = result.get("confidence", 0)
     reason = result.get("reason", "")
 
-    night = is_night_mode()
-    logger.info(f"分類結果: {classification} (信頼度: {confidence}) - {reason} | 夜間モード={night} トレーニング={TRAINING_MODE}")
+    logger.info(f"分類結果: {classification} (信頼度: {confidence}) - {reason}")
 
-    # ── 夜間モード（0:00〜6:00）: ボット自動対応 ──
-    if night and classification == "AUTO" and confidence >= 0.5 and suggested_answer:
+    # ── AUTO判定: ボットが自動回答 ──
+    if classification == "AUTO" and confidence >= 0.5 and suggested_answer:
         try:
             thread = await message.create_thread(name=f"{message.author.display_name}さんの質問")
             await thread.send(suggested_answer)
-            await log_to_sheet_async(worksheet, str(message.author), content, "AUTO（夜間）", suggested_answer, "自動返信済み")
-            logger.info(f"AUTO返信完了（夜間・スレッド）: {message.author.name}")
+            await log_to_sheet_async(worksheet, str(message.author), content, "AUTO", suggested_answer, "自動返信済み")
+            logger.info(f"AUTO返信完了（スレッド）: {message.author.name}")
         except Exception as e:
             logger.error(f"AUTO返信エラー: {e}")
 
-    # ── 日中 or トレーニング期間 or REVIEW判定: オーナー（ゆーぽん）に通知 ──
+    # ── REVIEW判定: オーナーにDM通知（本当に確認が必要なものだけ） ──
     else:
-        mode_label = "夜間REVIEW" if night else "日中（ゆーぽん対応）"
         try:
             owner = await bot.fetch_user(OWNER_DISCORD_ID)
             embed = discord.Embed(
                 title="📩 新しい質問（要確認）",
-                color=0xE74C3C if classification == "REVIEW" else 0xF39C12,
+                color=0xE74C3C,
                 timestamp=message.created_at,
             )
             embed.add_field(name="質問者", value=message.author.display_name, inline=True)
             embed.add_field(name="判定", value=f"{classification} (信頼度: {confidence})", inline=True)
-            embed.add_field(name="モード", value=mode_label, inline=True)
             embed.add_field(name="理由", value=reason[:200], inline=False)
             embed.add_field(name="質問内容", value=content[:1000], inline=False)
             if suggested_answer:
@@ -583,7 +580,7 @@ async def on_message(message: discord.Message):
             embed.add_field(name="🔗 元メッセージ", value=f"[メッセージを見る]({message.jump_url})", inline=False)
             view = ReviewView(message, suggested_answer, result)
             await owner.send(embed=embed, view=view)
-            await log_to_sheet_async(worksheet, str(message.author), content, f"REVIEW（{mode_label}）", suggested_answer, "確認待ち")
+            await log_to_sheet_async(worksheet, str(message.author), content, "REVIEW", suggested_answer, "確認待ち")
             logger.info(f"REVIEW通知送信（{mode_label}）: {message.author.name} → オーナーDM")
         except Exception as e:
             logger.error(f"DM通知エラー: {e}")
