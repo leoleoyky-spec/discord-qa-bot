@@ -31,6 +31,9 @@ OWNER_DISCORD_ID = int(os.environ["OWNER_DISCORD_ID"])
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "1484832551628439664"))
 SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID", "1F-vZRvfMCgXulI8I8Cqn6eXj0EONwTFIJKUPpeIucls")
 
+# ブログアウトプットチャンネル（自動リアクション）
+BLOG_CHANNEL_ID = int(os.environ.get("BLOG_CHANNEL_ID", "1485086627490431066"))
+
 # スタッフ判定キーワード
 STAFF_KEYWORDS = ["ゆーぽん", "みお事務局", "みお"]
 
@@ -278,6 +281,15 @@ async def on_ready():
 async def on_message(message: discord.Message):
     # Bot自身のメッセージは無視
     if message.author.bot:
+        return
+
+    # ── ブログアウトプットチャンネル: 自動リアクション ──
+    if message.channel.id == BLOG_CHANNEL_ID:
+        try:
+            await message.add_reaction("🥰")
+        except Exception as e:
+            logger.error(f"リアクション追加エラー: {e}")
+        await bot.process_commands(message)
         return
 
     # 監視チャンネル以外は無視
