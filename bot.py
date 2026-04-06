@@ -274,6 +274,21 @@ async def on_ready():
     logger.info(f"   オーナー: {OWNER_DISCORD_ID}")
     logger.info(f"   Gemini API: {'有効' if GEMINI_API_KEY else '無効'}")
     logger.info(f"   スプレッドシート: {'接続済み' if worksheet else '未接続'}")
+    # デバッグ: ボットが参加しているサーバーとアクセス可能なチャンネルを表示
+    for guild in bot.guilds:
+        logger.info(f"   サーバー: {guild.name} (ID: {guild.id}) メンバー数: {guild.member_count}")
+        target_ch = guild.get_channel(CHANNEL_ID)
+        blog_ch = guild.get_channel(BLOG_CHANNEL_ID)
+        entrance_ch = guild.get_channel(ENTRANCE_CHANNEL_ID)
+        logger.info(f"   → 監視チャンネル: {'見つかった' if target_ch else '見つからない！'} {target_ch}")
+        logger.info(f"   → ブログチャンネル: {'見つかった' if blog_ch else '見つからない！'} {blog_ch}")
+        logger.info(f"   → 入り口チャンネル: {'見つかった' if entrance_ch else '見つからない！'} {entrance_ch}")
+        # チャンネル一覧（テキストチャンネルのみ）
+        text_channels = [ch for ch in guild.channels if isinstance(ch, discord.TextChannel)]
+        logger.info(f"   → 見えるテキストチャンネル数: {len(text_channels)}")
+        for ch in text_channels[:20]:
+            perms = ch.permissions_for(guild.me)
+            logger.info(f"      ch: {ch.name} (ID: {ch.id}) 読み取り={perms.read_messages} 送信={perms.send_messages} スレッド作成={perms.create_public_threads}")
 
 
 @bot.event
