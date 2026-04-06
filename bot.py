@@ -34,6 +34,10 @@ SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID", "1F-vZRvfMCgXulI8I8Cqn6eXj0EON
 # ブログアウトプットチャンネル（自動リアクション）
 BLOG_CHANNEL_ID = int(os.environ.get("BLOG_CHANNEL_ID", "1485086627490431066"))
 
+# 入り口チャンネル（新メンバー歓迎）
+ENTRANCE_CHANNEL_ID = int(os.environ.get("ENTRANCE_CHANNEL_ID", "1473853429418819749"))
+WELCOME_STICKER_ID = int(os.environ.get("WELCOME_STICKER_ID", "1490522895183773876"))
+
 # スタッフ判定キーワード
 STAFF_KEYWORDS = ["ゆーぽん", "みお事務局", "みお"]
 
@@ -275,6 +279,26 @@ async def on_ready():
         logger.info("   スプレッドシート: 接続済み")
     else:
         logger.warning("   スプレッドシート: 未接続")
+
+
+@bot.event
+async def on_member_join(member: discord.Member):
+    """新メンバー入室時に「入り口」チャンネルでスタンプを送る"""
+    try:
+        channel = bot.get_channel(ENTRANCE_CHANNEL_ID)
+        if channel:
+            sticker = await bot.fetch_sticker(WELCOME_STICKER_ID)
+            await channel.send(stickers=[sticker])
+            logger.info(f"歓迎スタンプ送信: {member.display_name}")
+    except Exception as e:
+        logger.error(f"歓迎スタンプエラー: {e}")
+        # スタンプが使えない場合は手を振る絵文字メッセージで代替
+        try:
+            channel = bot.get_channel(ENTRANCE_CHANNEL_ID)
+            if channel:
+                await channel.send(f"👋 ようこそ {member.mention} さん！")
+        except Exception as e2:
+            logger.error(f"歓迎メッセージエラー: {e2}")
 
 
 @bot.event
