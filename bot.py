@@ -36,11 +36,9 @@ BLOG_CHANNEL_ID = int(os.environ.get("BLOG_CHANNEL_ID", "1485086627490431066"))
 ENTRANCE_CHANNEL_ID = int(os.environ.get("ENTRANCE_CHANNEL_ID", "1473853429418819749"))
 WELCOME_STICKER_ID = int(os.environ.get("WELCOME_STICKER_ID", "1490522895183773876"))
 
-# スタッフ判定（オーナー + スタッフのユーザーID）
-# ここにスタッフのDiscordユーザーIDを追加
-STAFF_USER_IDS = [
-    OWNER_DISCORD_ID,  # みお本人
-]
+# スタッフ判定（スタッフのユーザーIDを追加する場合はここに）
+# オーナーにも返答するため、オーナーIDは含めない
+STAFF_USER_IDS = []
 
 # スクショ要求トリガーキーワード
 ERROR_KEYWORDS = ["エラー", "できない", "動かない", "開かない", "失敗", "おかしい"]
