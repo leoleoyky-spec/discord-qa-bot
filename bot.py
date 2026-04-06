@@ -1,5 +1,5 @@
 """
-Discord Q&A Bot for noteメンバーシップ
+Discord Q&A Bot for noteメンバーシップ v2
 - 質問をGemini APIでAUTO/REVIEWに振り分け
 - AUTO: 自動返信 + スプレッドシート記録
 - REVIEW: オーナーにDM通知 + ボタンで送信
