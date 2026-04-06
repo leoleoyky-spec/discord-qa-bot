@@ -316,6 +316,8 @@ async def on_member_join(member: discord.Member):
 
 @bot.event
 async def on_message(message: discord.Message):
+    logger.info(f"メッセージ受信: ch={message.channel.id} author={message.author.name} content={message.content[:30]}")
+
     # Bot自身のメッセージは無視
     if message.author.bot:
         return
