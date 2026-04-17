@@ -31,6 +31,10 @@ OWNER_DISCORD_ID = int(os.environ["OWNER_DISCORD_ID"])
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "1484832551628439664"))
 SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID", "1F-vZRvfMCgXulI8I8Cqn6eXj0EONwTFIJKUPpeIucls")
 
+# Midjourney (GoAPI)
+MIDJOURNEY_API_KEY = os.environ.get("MIDJOURNEY_API_KEY", "")
+MIDJOURNEY_API_BASE = "https://api.goapi.ai/mj/v2"
+
 # ブログアウトプットチャンネル（自動リアクション）
 BLOG_CHANNEL_ID = int(os.environ.get("BLOG_CHANNEL_ID", "1485086627490431066"))
 
@@ -581,11 +585,96 @@ async def on_message(message: discord.Message):
             view = ReviewView(message, suggested_answer, result)
             await owner.send(embed=embed, view=view)
             await log_to_sheet_async(worksheet, str(message.author), content, "REVIEW", suggested_answer, "確認待ち")
-            logger.info(f"REVIEW通知送信（{mode_label}）: {message.author.name} → オーナーDM")
+            logger.info(f"REVIEW通知送信: {message.author.name} → オーナーDM")
         except Exception as e:
             logger.error(f"DM通知エラー: {e}")
 
     await bot.process_commands(message)
+
+
+# ── Midjourney ──
+async def mj_imagine(prompt: str) -> dict:
+    """GoAPI経由でMidjourney画像生成タスクを開始する"""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{MIDJOURNEY_API_BASE}/imagine",
+            headers={"X-API-Key": MIDJOURNEY_API_KEY, "Content-Type": "application/json"},
+            json={"prompt": prompt},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def mj_fetch(task_id: str) -> dict:
+    """タスクの状態を取得する"""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{MIDJOURNEY_API_BASE}/fetch",
+            headers={"X-API-Key": MIDJOURNEY_API_KEY},
+            params={"task_id": task_id},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def mj_wait_for_result(task_id: str, max_wait: int = 300) -> dict:
+    """画像生成完了まで最大max_wait秒ポーリングする"""
+    for _ in range(max_wait // 5):
+        await asyncio.sleep(5)
+        data = await mj_fetch(task_id)
+        status = data.get("status", "")
+        if status in ("completed", "failed"):
+            return data
+    return {"status": "timeout"}
+
+
+@bot.command(name="imagine")
+async def imagine_cmd(ctx, *, prompt: str = ""):
+    """Midjourneyで画像生成: !imagine <プロンプト>"""
+    if not MIDJOURNEY_API_KEY:
+        await ctx.reply("❌ Midjourney APIキーが設定されていません。管理者に連絡してください。")
+        return
+    if not prompt:
+        await ctx.reply("使い方: `!imagine <プロンプト>`\n例: `!imagine a cat sitting on a rainbow, digital art`")
+        return
+
+    status_msg = await ctx.reply("🎨 Midjourneyで画像を生成中... しばらくお待ちください！")
+    try:
+        task = await mj_imagine(prompt)
+        task_id = task.get("task_id") or task.get("id")
+        if not task_id:
+            await status_msg.edit(content=f"❌ タスク開始に失敗しました: {task}")
+            return
+
+        logger.info(f"Midjourney タスク開始: {task_id} / prompt={prompt[:50]}")
+        result = await mj_wait_for_result(task_id)
+
+        if result.get("status") == "completed":
+            image_url = (
+                result.get("output", {}).get("image_url")
+                or result.get("image_url")
+                or result.get("output", {}).get("image_urls", [None])[0]
+            )
+            if image_url:
+                embed = discord.Embed(title="🎨 Midjourney 生成完了", color=0x9B59B6)
+                embed.set_image(url=image_url)
+                embed.set_footer(text=f"プロンプト: {prompt[:200]}")
+                await status_msg.edit(content=None, embed=embed)
+            else:
+                await status_msg.edit(content=f"✅ 生成完了しましたが画像URLが取得できませんでした。\n```{result}```")
+        elif result.get("status") == "timeout":
+            await status_msg.edit(content="⏰ タイムアウトしました。Midjourneyの混雑状況をご確認ください。")
+        else:
+            await status_msg.edit(content=f"❌ 生成失敗: {result.get('error') or result.get('status')}")
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Midjourney API HTTPエラー: {e}")
+        await status_msg.edit(content=f"❌ APIエラー ({e.response.status_code}): {e.response.text[:200]}")
+    except Exception as e:
+        logger.error(f"Midjourney コマンドエラー: {e}")
+        await status_msg.edit(content=f"❌ エラーが発生しました: {e}")
 
 
 @bot.command(name="status")
@@ -596,6 +685,7 @@ async def status_cmd(ctx):
     embed.add_field(name="状態", value="稼働中", inline=True)
     embed.add_field(name="AI", value="Gemini" if GEMINI_API_KEY else "無効", inline=True)
     embed.add_field(name="スプレッドシート", value="接続済み" if worksheet else "未接続", inline=True)
+    embed.add_field(name="Midjourney", value="有効" if MIDJOURNEY_API_KEY else "無効", inline=True)
     await ctx.send(embed=embed)
 
 
